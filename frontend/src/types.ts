@@ -61,6 +61,7 @@ export interface GamepadState {
   rightTriggerPressed: boolean; // R2
   leftBumperPressed: boolean;   // L1
   rightBumperPressed: boolean;  // R1
+  rightStickPressed: boolean;   // R3
   leftJoystickY: number;
   rightJoystickY: number;
 }

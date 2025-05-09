@@ -3,6 +3,28 @@ import styled from 'styled-components';
 import type { Config } from '../types';
 import { clearAllSavedData } from '../utils/localStorage';
 
+// Market condition presets
+const MARKET_PRESETS = {
+  CHILL: {
+    volatility: 0.0005,
+    spread: 0.0001,
+    updateInterval: 20,
+    maxTradesPerSecond: 5
+  },
+  ON_FIRE: {
+    volatility: 0.005,
+    spread: 0.0005,
+    updateInterval: 10,
+    maxTradesPerSecond: 10
+  },
+  CRAZY: {
+    volatility: 0.02,
+    spread: 0.001,
+    updateInterval: 5,
+    maxTradesPerSecond: 20
+  }
+};
+
 interface SettingsPanelProps {
   config: Config;
   updateConfig: (config: Partial<Config>) => void;
@@ -89,6 +111,70 @@ const Button = styled.button<{ variant?: 'primary' | 'secondary' }>`
   }
 `;
 
+const PresetButtonsContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  grid-column: 1 / -1;
+  margin-bottom: 1.5rem;
+`;
+
+const PresetButton = styled.button<{ $preset: 'CHILL' | 'ON_FIRE' | 'CRAZY' }>`
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+
+  background-color: ${props => {
+    switch (props.$preset) {
+      case 'CHILL':
+        return 'rgba(33, 150, 243, 0.2)';
+      case 'ON_FIRE':
+        return 'rgba(255, 152, 0, 0.2)';
+      case 'CRAZY':
+        return 'rgba(244, 67, 54, 0.2)';
+    }
+  }};
+
+  color: ${props => {
+    switch (props.$preset) {
+      case 'CHILL':
+        return '#2196F3';
+      case 'ON_FIRE':
+        return '#FF9800';
+      case 'CRAZY':
+        return '#F44336';
+    }
+  }};
+
+  border: 1px solid ${props => {
+    switch (props.$preset) {
+      case 'CHILL':
+        return '#2196F3';
+      case 'ON_FIRE':
+        return '#FF9800';
+      case 'CRAZY':
+        return '#F44336';
+    }
+  }};
+
+  &:hover {
+    background-color: ${props => {
+      switch (props.$preset) {
+        case 'CHILL':
+          return 'rgba(33, 150, 243, 0.4)';
+        case 'ON_FIRE':
+          return 'rgba(255, 152, 0, 0.4)';
+        case 'CRAZY':
+          return 'rgba(244, 67, 54, 0.4)';
+      }
+    }};
+  }
+`;
+
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) => {
   const [formValues, setFormValues] = useState<Config>({ ...config });
 
@@ -124,9 +210,40 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
     setFormValues({ ...config });
   };
 
+  const applyPreset = (preset: 'CHILL' | 'ON_FIRE' | 'CRAZY') => {
+    const presetConfig = MARKET_PRESETS[preset];
+    const newConfig = { ...formValues, ...presetConfig };
+    setFormValues(newConfig);
+    updateConfig(newConfig); // Apply immediately
+  };
+
   return (
     <SettingsContainer>
       <SettingsTitle>Simulation Settings</SettingsTitle>
+
+      <PresetButtonsContainer>
+        <PresetButton
+          type="button"
+          $preset="CHILL"
+          onClick={() => applyPreset('CHILL')}
+        >
+          Chill Market
+        </PresetButton>
+        <PresetButton
+          type="button"
+          $preset="ON_FIRE"
+          onClick={() => applyPreset('ON_FIRE')}
+        >
+          Market on Fire
+        </PresetButton>
+        <PresetButton
+          type="button"
+          $preset="CRAZY"
+          onClick={() => applyPreset('CRAZY')}
+        >
+          Crazy Market
+        </PresetButton>
+      </PresetButtonsContainer>
 
       <SettingsForm onSubmit={handleSubmit}>
         <FormGroup>
@@ -150,7 +267,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
               name="volatility"
               type="range"
               min="0.00001"
-              max="0.01"
+              max="0.05"
               step="0.0001"
               value={formValues.volatility}
               onChange={handleChange}
@@ -171,7 +288,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
               name="spread"
               type="range"
               min="0.00001"
-              max="0.001"
+              max="0.005"
               step="0.00001"
               value={formValues.spread}
               onChange={handleChange}
