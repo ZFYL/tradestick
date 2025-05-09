@@ -133,7 +133,6 @@ const GamepadController: React.FC<GamepadControllerProps> = ({
     rightTriggerPressed: false, // R2
     leftBumperPressed: false,   // L1
     rightBumperPressed: false,  // R1
-    rightStickPressed: false,   // R3
     leftJoystickY: 0,
     rightJoystickY: 0
   });
@@ -182,6 +181,9 @@ const GamepadController: React.FC<GamepadControllerProps> = ({
     };
   }, []);
 
+  // Track previous R2 state to detect changes
+  const prevR2State = useRef(false);
+
   // Poll gamepad state
   useEffect(() => {
     if (!gamepadState.connected) return;
@@ -210,9 +212,6 @@ const GamepadController: React.FC<GamepadControllerProps> = ({
         const rightBumperPressed = activeGamepad.buttons[5]?.pressed || false; // R1
         const leftBumperPressed = activeGamepad.buttons[4]?.pressed || false;  // L1
 
-        // R3 (Right stick press)
-        const rightStickPressed = activeGamepad.buttons[11]?.pressed || false; // R3
-
         // Joysticks
         const rightJoystickY = activeGamepad.axes[3] || 0; // Right joystick Y-axis
         const leftJoystickY = activeGamepad.axes[1] || 0;  // Left joystick Y-axis
@@ -224,7 +223,6 @@ const GamepadController: React.FC<GamepadControllerProps> = ({
           leftTriggerPressed: leftTriggerValue > 0.1,
           rightBumperPressed,
           leftBumperPressed,
-          rightStickPressed,
           rightJoystickY,
           leftJoystickY
         });
@@ -237,12 +235,15 @@ const GamepadController: React.FC<GamepadControllerProps> = ({
 
         // If all three are pressed: 5 * 10 * 20 = 1000x multiplier
 
-        // Handle trade execution with right trigger (R2) or right stick press (R3) and joystick
+        // Handle trade execution with right trigger (R2) and joystick
         // Use the current gamepad state directly from the controller
         const rightTriggerPressed = rightTriggerValue > 0.1;
-        const tradeTriggerActive = rightTriggerPressed || rightStickPressed;
 
-        // Check if joystick is moved enough to determine a direction
+        // Detect R2 button press events (transition from not pressed to pressed)
+        const r2JustPressed = rightTriggerPressed && !prevR2State.current;
+        prevR2State.current = rightTriggerPressed;
+
+        // Always show potential trade info based on joystick position
         if (Math.abs(rightJoystickY) > 0.1) {
           const side = rightJoystickY > 0 ? 'buy' : 'sell';
           const sizeCoefficient = Math.min(1, Math.abs(rightJoystickY));
@@ -257,8 +258,12 @@ const GamepadController: React.FC<GamepadControllerProps> = ({
             size: sizeCoefficient
           });
 
-          // Execute the trade immediately if trigger is active
-          if (tradeTriggerActive) {
+          // Execute the trade in two cases:
+          // 1. When R2 is first pressed (for immediate response)
+          // 2. When R2 is held down (continuous trading)
+          if (r2JustPressed || rightTriggerPressed) {
+            // Log for debugging
+            console.log('Executing trade:', { side, size, rightTriggerPressed, r2JustPressed });
             executeTrade(side, size);
           }
         } else {
@@ -295,7 +300,7 @@ const GamepadController: React.FC<GamepadControllerProps> = ({
       </GamepadStatus>
 
       <GamepadInstructions>
-        <div>R2 or R3 + Right Joystick: Execute trades</div>
+        <div>R2 + Right Joystick: Execute trades</div>
         <div>Multipliers: L1 (5x), L2 (10x), R1 (20x) - All can be combined!</div>
         <div>Maximum multiplier when all pressed: 1000x (5 × 10 × 20)</div>
       </GamepadInstructions>
@@ -335,14 +340,6 @@ const GamepadController: React.FC<GamepadControllerProps> = ({
             $type="R2"
           >
             R2
-            <MultiplierText>Trade</MultiplierText>
-          </TriggerButton>
-
-          <TriggerButton
-            $pressed={gamepadState.rightStickPressed}
-            $type="R2"
-          >
-            R3
             <MultiplierText>Trade</MultiplierText>
           </TriggerButton>
         </TriggerContainer>
