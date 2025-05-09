@@ -50,6 +50,11 @@ export interface Config {
   initialBalance: number;
   candleInterval: number; // in milliseconds (10, 100, 1000, 5000)
   pnlWindowTime: number; // in milliseconds (5000, 15000, 30000, 60000)
+  // Price change threshold sliders (percent, e.g. 3 for 3%)
+  priceChangeThreshold15s: number; // 0-20, default 3
+  priceChangeThreshold1m: number;  // 1-30, default 5
+  priceChangeThreshold15m: number; // 5-45, default 5
+  priceChangeThreshold1h: number;  // 5-100, default 5
 }
 
 
@@ -61,6 +66,7 @@ export interface GamepadState {
   rightTriggerPressed: boolean; // R2
   leftBumperPressed: boolean;   // L1
   rightBumperPressed: boolean;  // R1
+  rightJoystickPressed: boolean; // R3
   leftJoystickY: number;
   rightJoystickY: number;
 }

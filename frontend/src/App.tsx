@@ -267,7 +267,12 @@ function App() {
     tradeSizeStep: 0.1,
     initialBalance: 10000,
     candleInterval: 1000, // Default to 1 second candles
-    pnlWindowTime: 15000 // Default to 15 second rolling window
+    pnlWindowTime: 15000, // Default to 15 second rolling window
+    // Price change threshold sliders (percent)
+    priceChangeThreshold15s: 3,   // 0-20, default 3
+    priceChangeThreshold1m: 5,    // 1-30, default 5
+    priceChangeThreshold15m: 5,   // 5-45, default 5
+    priceChangeThreshold1h: 5     // 5-100, default 5
   };
 
   // Load config from localStorage or use default

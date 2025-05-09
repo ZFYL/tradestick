@@ -36,18 +36,38 @@ const io = new Server(server, {
 
 console.log('Socket.IO server created');
 
-// Default market configuration
+/**
+* Default market configuration, including amplitude (volatility) guarantees for each interval.
+* Amplitude settings are editable via the /api/amplitude-settings endpoint.
+*/
 const defaultConfig = {
-  initialPrice: 1.10000, // EUR/USD starting price
-  volatility: 0.0001,    // Annualized volatility (scaled for milliseconds)
-  spread: 0.0001,        // 1 pip spread
-  updateInterval: 10,    // Update every 10ms
-  orderBookLevels: 5,    // 5 levels of depth in order book
-  maxTradeSize: 1.0,     // Maximum trade size
-  maxTradesPerSecond: 10, // Maximum trades per second
-  candleInterval: 1000,  // Default to 1 second candles
-  tradeSizeStep: 0.1,    // Default trade size step
-  initialBalance: 10000  // Default initial balance
+ initialPrice: 1.10000, // EUR/USD starting price
+ volatility: 0.0001,    // Annualized volatility (scaled for milliseconds)
+ spread: 0.0001,        // 1 pip spread
+ updateInterval: 10,    // Update every 10ms
+ orderBookLevels: 5,    // 5 levels of depth in order book
+ maxTradeSize: 1.0,     // Maximum trade size
+ maxTradesPerSecond: 10, // Maximum trades per second
+ candleInterval: 1000,  // Default to 1 second candles
+ tradeSizeStep: 0.1,    // Default trade size step
+ initialBalance: 10000, // Default initial balance
+
+ // Amplitude (volatility) guarantees for each interval (percent)
+ priceChangeThreshold15s: 0.2,
+ priceChangeThreshold1m: 0.5,
+ priceChangeThreshold15m: 1.5,
+ priceChangeThreshold1h: 3.0
+};
+
+/**
+* Shared amplitude settings object.
+* These values are editable via the /api/amplitude-settings endpoint and used by the market simulator.
+*/
+const amplitudeSettings = {
+ priceChangeThreshold15s: defaultConfig.priceChangeThreshold15s,
+ priceChangeThreshold1m: defaultConfig.priceChangeThreshold1m,
+ priceChangeThreshold15m: defaultConfig.priceChangeThreshold15m,
+ priceChangeThreshold1h: defaultConfig.priceChangeThreshold1h
 };
 
 // Create market simulator
@@ -103,20 +123,79 @@ marketSimulator.start((marketData) => {
 
 // API routes
 app.get('/', (req, res) => {
-  res.send('Forex Trading Simulator API is running');
+ res.send('Forex Trading Simulator API is running');
+});
+
+/**
+* @api {get} /api/amplitude-settings Get amplitude (volatility) guarantee settings
+* @apiSuccess {Object} settings Current amplitude settings for 15s, 1m, 15m, 1h intervals (percent).
+* Example response:
+*   {
+*     "priceChangeThreshold15s": 0.2,
+*     "priceChangeThreshold1m": 0.5,
+*     "priceChangeThreshold15m": 1.5,
+*     "priceChangeThreshold1h": 3.0
+*   }
+*/
+app.get('/api/amplitude-settings', (req, res) => {
+ res.json({ ...amplitudeSettings });
+});
+
+/**
+* @api {post} /api/amplitude-settings Update amplitude (volatility) guarantee settings
+* @apiBody {Object} settings New amplitude settings (any/all of: priceChangeThreshold15s, priceChangeThreshold1m, priceChangeThreshold15m, priceChangeThreshold1h)
+* @apiSuccess {Object} settings Updated amplitude settings.
+* Example request body:
+*   {
+*     "priceChangeThreshold15m": 2.0,
+*     "priceChangeThreshold1h": 4.0
+*   }
+*/
+app.post('/api/amplitude-settings', (req, res) => {
+ // Only update known keys
+ const allowedKeys = [
+   'priceChangeThreshold15s',
+   'priceChangeThreshold1m',
+   'priceChangeThreshold15m',
+   'priceChangeThreshold1h'
+ ];
+ let changed = false;
+ for (const key of allowedKeys) {
+   if (typeof req.body[key] === 'number') {
+     amplitudeSettings[key] = req.body[key];
+     changed = true;
+   }
+ }
+ if (changed) {
+   // Update the simulator config so new settings take effect immediately
+   marketSimulator.updateConfig({ ...amplitudeSettings });
+ }
+ res.json({ ...amplitudeSettings });
 });
 
 app.get('/api/config', (req, res) => {
-  res.json(marketSimulator.getConfig());
+ res.json(marketSimulator.getConfig());
 });
 
 app.post('/api/config', (req, res) => {
-  marketSimulator.updateConfig(req.body);
-  res.json(marketSimulator.getConfig());
+ marketSimulator.updateConfig(req.body);
+ // If amplitude settings are included, update the shared object as well
+ const allowedKeys = [
+   'priceChangeThreshold15s',
+   'priceChangeThreshold1m',
+   'priceChangeThreshold15m',
+   'priceChangeThreshold1h'
+ ];
+ for (const key of allowedKeys) {
+   if (typeof req.body[key] === 'number') {
+     amplitudeSettings[key] = req.body[key];
+   }
+ }
+ res.json(marketSimulator.getConfig());
 });
 
 app.get('/api/market-data', (req, res) => {
-  res.json(marketSimulator.generateMarketData());
+ res.json(marketSimulator.generateMarketData());
 });
 
 // Start server
