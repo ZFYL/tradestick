@@ -1,5 +1,5 @@
 {
-  "name": "gamified-trade",
+  "name": "tradestick",
   "version": "1.0.0",
   "description": "A gamified trading market simulator with joystick integration",
   "main": "index.js",

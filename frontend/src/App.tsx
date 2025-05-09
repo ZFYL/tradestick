@@ -6,6 +6,7 @@ import OrderBook from './components/OrderBook';
 import GamepadController from './components/GamepadController';
 import SettingsPanel from './components/SettingsPanel';
 import TradeBook from './components/TradeBook';
+import Footer from './components/Footer';
 import type { MarketData, Trade, Config } from './types';
 import { theme } from './theme';
 import {
@@ -468,7 +469,7 @@ function App() {
     <ThemeProvider theme={theme}>
       <AppContainer>
         <Header>
-          <Title>Gamified Forex Trading Simulator</Title>
+          <Title>TradeStick</Title>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -641,6 +642,8 @@ function App() {
             Rate Limit: {config.maxTradesPerSecond}/sec
           </div>
         </StatusBar>
+
+        <Footer />
       </AppContainer>
     </ThemeProvider>
   );
