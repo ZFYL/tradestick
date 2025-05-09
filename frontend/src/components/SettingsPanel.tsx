@@ -12,16 +12,22 @@ const MARKET_PRESETS = {
     maxTradesPerSecond: 5
   },
   ON_FIRE: {
-    volatility: 0.005,
+    volatility: 0.01,
     spread: 0.0005,
     updateInterval: 10,
     maxTradesPerSecond: 10
   },
   CRAZY: {
-    volatility: 0.02,
+    volatility: 0.05,
     spread: 0.001,
     updateInterval: 5,
     maxTradesPerSecond: 20
+  },
+  EXTREME: {
+    volatility: 0.15,
+    spread: 0.002,
+    updateInterval: 3,
+    maxTradesPerSecond: 30
   }
 };
 
@@ -119,7 +125,7 @@ const PresetButtonsContainer = styled.div`
   margin-bottom: 1.5rem;
 `;
 
-const PresetButton = styled.button<{ $preset: 'CHILL' | 'ON_FIRE' | 'CRAZY' }>`
+const PresetButton = styled.button<{ $preset: 'CHILL' | 'ON_FIRE' | 'CRAZY' | 'EXTREME' }>`
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 4px;
@@ -136,6 +142,8 @@ const PresetButton = styled.button<{ $preset: 'CHILL' | 'ON_FIRE' | 'CRAZY' }>`
         return 'rgba(255, 152, 0, 0.2)';
       case 'CRAZY':
         return 'rgba(244, 67, 54, 0.2)';
+      case 'EXTREME':
+        return 'rgba(156, 39, 176, 0.2)';
     }
   }};
 
@@ -147,6 +155,8 @@ const PresetButton = styled.button<{ $preset: 'CHILL' | 'ON_FIRE' | 'CRAZY' }>`
         return '#FF9800';
       case 'CRAZY':
         return '#F44336';
+      case 'EXTREME':
+        return '#9C27B0';
     }
   }};
 
@@ -158,6 +168,8 @@ const PresetButton = styled.button<{ $preset: 'CHILL' | 'ON_FIRE' | 'CRAZY' }>`
         return '#FF9800';
       case 'CRAZY':
         return '#F44336';
+      case 'EXTREME':
+        return '#9C27B0';
     }
   }};
 
@@ -170,6 +182,8 @@ const PresetButton = styled.button<{ $preset: 'CHILL' | 'ON_FIRE' | 'CRAZY' }>`
           return 'rgba(255, 152, 0, 0.4)';
         case 'CRAZY':
           return 'rgba(244, 67, 54, 0.4)';
+        case 'EXTREME':
+          return 'rgba(156, 39, 176, 0.4)';
       }
     }};
   }
@@ -210,7 +224,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
     setFormValues({ ...config });
   };
 
-  const applyPreset = (preset: 'CHILL' | 'ON_FIRE' | 'CRAZY') => {
+  const applyPreset = (preset: 'CHILL' | 'ON_FIRE' | 'CRAZY' | 'EXTREME') => {
     const presetConfig = MARKET_PRESETS[preset];
     const newConfig = { ...formValues, ...presetConfig };
     setFormValues(newConfig);
@@ -243,6 +257,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
         >
           Crazy Market
         </PresetButton>
+        <PresetButton
+          type="button"
+          $preset="EXTREME"
+          onClick={() => applyPreset('EXTREME')}
+        >
+          Extreme Market
+        </PresetButton>
       </PresetButtonsContainer>
 
       <SettingsForm onSubmit={handleSubmit}>
@@ -267,7 +288,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
               name="volatility"
               type="range"
               min="0.00001"
-              max="0.05"
+              max="0.2"
               step="0.0001"
               value={formValues.volatility}
               onChange={handleChange}

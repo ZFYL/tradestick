@@ -94,14 +94,19 @@ class MarketSimulator {
     const deltaTime = (now - this.lastUpdateTime) / 1000; // Convert to seconds
     this.lastUpdateTime = now;
 
-    // Generate new price using Geometric Brownian Motion
-    // dS = μS dt + σS dW, where μ = 0 (no drift) for simplicity
-    const drift = 0;
+    // Generate new price using Geometric Brownian Motion with reduced mean reversion
+    // dS = μS dt + σS dW, where μ is a small drift to allow for more extreme movements
+    // Higher volatility settings will now allow for more extreme price movements
+    const drift = this.config.volatility > 0.05 ? 0.01 * this.normalRandom() : 0; // Add small random drift for high volatility
     const volatility = this.config.volatility;
-    const randomComponent = this.normalRandom() * Math.sqrt(deltaTime);
+
+    // Use a more extreme random component for higher volatility settings
+    const randomFactor = this.config.volatility > 0.1 ? 1.5 : 1.0;
+    const randomComponent = this.normalRandom() * Math.sqrt(deltaTime) * randomFactor;
+
     const priceChange = drift * deltaTime + volatility * randomComponent;
 
-    // Update price
+    // Update price with less constraint to allow for more extreme movements
     this.currentPrice *= Math.exp(priceChange);
 
     // Calculate bid and ask prices

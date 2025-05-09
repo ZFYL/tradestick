@@ -238,23 +238,29 @@ const GamepadController: React.FC<GamepadControllerProps> = ({
         // If all three are pressed: 5 * 10 * 20 = 1000x multiplier
 
         // Handle trade execution with right trigger (R2) or right stick press (R3) and joystick
-        const tradeTriggerActive = gamepadState.rightTriggerPressed || gamepadState.rightStickPressed;
+        // Use the current gamepad state directly from the controller
+        const rightTriggerPressed = rightTriggerValue > 0.1;
+        const tradeTriggerActive = rightTriggerPressed || rightStickPressed;
 
-        if (tradeTriggerActive && Math.abs(gamepadState.rightJoystickY) > 0.1) {
-          const side = gamepadState.rightJoystickY > 0 ? 'buy' : 'sell';
-          const sizeCoefficient = Math.min(1, Math.abs(gamepadState.rightJoystickY));
+        // Check if joystick is moved enough to determine a direction
+        if (Math.abs(rightJoystickY) > 0.1) {
+          const side = rightJoystickY > 0 ? 'buy' : 'sell';
+          const sizeCoefficient = Math.min(1, Math.abs(rightJoystickY));
 
           // Calculate size with multipliers and round to nearest step
           const rawSize = sizeCoefficient * maxTradeSize * sizeMultiplier;
           const size = Math.round(rawSize / tradeSizeStep) * tradeSizeStep;
 
+          // Update the active trade display
           setActiveTrade({
             side,
             size: sizeCoefficient
           });
 
-          // Execute the trade
-          executeTrade(side, size);
+          // Execute the trade immediately if trigger is active
+          if (tradeTriggerActive) {
+            executeTrade(side, size);
+          }
         } else {
           setActiveTrade({
             side: null,
