@@ -262,9 +262,9 @@ function App() {
     spread: 0.0002,
     updateInterval: 10,
     orderBookLevels: 10,
-    maxTradeSize: 1.0,
+    maxTradeSize: 0.000000001,
     maxTradesPerSecond: 2,
-    tradeSizeStep: 0.1,
+    tradeSizeStep: 0.000000001,
     initialBalance: 10000,
     candleInterval: 1000, // Default to 1 second candles
     pnlWindowTime: 15000, // Default to 15 second rolling window
@@ -272,7 +272,8 @@ function App() {
     priceChangeThreshold15s: 3,   // 0-20, default 3
     priceChangeThreshold1m: 5,    // 1-30, default 5
     priceChangeThreshold15m: 5,   // 5-45, default 5
-    priceChangeThreshold1h: 5     // 5-100, default 5
+    priceChangeThreshold1h: 5,    // 5-100, default 5
+    marketDataSource: 'simulator'
   };
 
   // Load config from localStorage or use default
@@ -304,42 +305,115 @@ function App() {
 
   // Initialize API connection
   useEffect(() => {
-    console.log('Initializing API connection...');
+    let intervalId: number | null = null;
+    let ws: WebSocket | null = null;
+    let wsReconnectTimeout: number | null = null;
+    let isUnmounted = false;
 
-    // Set up polling for market data
-    const fetchMarketData = () => {
-      fetch('http://localhost:3001/api/market-data')
-        .then(response => response.json())
-        .then(data => {
-          // Log every 10th update to avoid flooding the console
-          if (Math.random() < 0.1) {
-            console.log('Received market data:', {
-              timestamp: data.timestamp,
-              price: data.price,
-              candles: data.candles?.length || 0
-            });
-          }
-          setMarketData(data);
+    if (config.marketDataSource === 'simulator') {
+      // Poll backend as before
+      const fetchMarketData = () => {
+        fetch('http://localhost:3001/api/market-data')
+          .then(response => response.json())
+          .then(data => {
+            if (Math.random() < 0.1) {
+              console.log('Received market data:', {
+                timestamp: data.timestamp,
+                price: data.price,
+                candles: data.candles?.length || 0
+              });
+            }
+            setMarketData(data);
+            setIsConnected(true);
+          })
+          .catch(error => {
+            console.error('Error fetching market data:', error);
+            setIsConnected(false);
+          });
+      };
+      fetchMarketData();
+      intervalId = setInterval(fetchMarketData, 500);
+    } else if (config.marketDataSource === 'binance') {
+      // Connect to Binance WebSocket
+      const connectWS = () => {
+        ws = new window.WebSocket('wss://stream.binance.com:9443/ws/btcusdt@kline_1s');
+        ws.onopen = () => {
+          if (isUnmounted) return;
           setIsConnected(true);
-        })
-        .catch(error => {
-          console.error('Error fetching market data:', error);
+          console.log('Connected to Binance WebSocket');
+        };
+        ws.onmessage = (event) => {
+          if (isUnmounted) return;
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.k) {
+              setMarketData(prev => {
+                // Always update price, timestamp, bid, ask
+                const base = {
+                  price: parseFloat(msg.k.c),
+                  timestamp: msg.k.T,
+                  bid: parseFloat(msg.k.c),
+                  ask: parseFloat(msg.k.c),
+                  orderBook: prev?.orderBook ?? { bids: [], asks: [] },
+                  trades: prev?.trades ?? []
+                };
+                // Only add a new candle if kline is closed
+                if (msg.k.x) {
+                  const newCandle = {
+                    open: parseFloat(msg.k.o),
+                    high: parseFloat(msg.k.h),
+                    low: parseFloat(msg.k.l),
+                    close: parseFloat(msg.k.c),
+                    volume: parseFloat(msg.k.v),
+                    timestamp: msg.k.T
+                  };
+                  return {
+                    ...base,
+                    candles: [
+                      ...(prev?.candles || []),
+                      newCandle
+                    ].slice(-100)
+                  };
+                } else {
+                  // Keep existing candles
+                  return {
+                    ...base,
+                    candles: prev?.candles || []
+                  };
+                }
+              });
+            }
+          } catch (err) {
+            console.error('Error parsing Binance message:', err);
+          }
+        };
+        ws.onclose = () => {
+          if (isUnmounted) return;
           setIsConnected(false);
-        });
-    };
+          console.warn('Binance WebSocket closed, reconnecting...');
+          wsReconnectTimeout = setTimeout(connectWS, 2000);
+        };
+        ws.onerror = (err) => {
+          if (isUnmounted) return;
+          setIsConnected(false);
+          console.error('Binance WebSocket error:', err);
+          ws?.close();
+        };
+      };
+      connectWS();
+    } else {
+      // "Else" (WIP): set disconnected state, no data
+      setIsConnected(false);
+    }
 
-    // Initial fetch
-    fetchMarketData();
-
-    // Set up polling interval (every 500ms)
-    const intervalId = setInterval(fetchMarketData, 500);
-
-    // Clean up
+    // Cleanup
     return () => {
-      console.log('Cleaning up API polling...');
-      clearInterval(intervalId);
+      isUnmounted = true;
+      if (intervalId) clearInterval(intervalId);
+      if (ws) ws.close();
+      if (wsReconnectTimeout) clearTimeout(wsReconnectTimeout);
     };
-  }, []);
+  }, [config.marketDataSource]);
 
   // Calculate portfolio value whenever asset holdings or market price changes
   useEffect(() => {
@@ -532,12 +606,19 @@ function App() {
               <BalanceDisplay>
                 <BalanceMetric color="rgba(33, 150, 243, 0.3)">
                   <BalanceLabel>BTC Value</BalanceLabel>
-                  <BalanceValue>${portfolioValue.toFixed(2)}</BalanceValue>
+                  <BalanceValue>{assetHoldings.toFixed(8)} BTC</BalanceValue>
                 </BalanceMetric>
 
                 <BalanceMetric color="rgba(255, 152, 0, 0.3)">
-                  <BalanceLabel>Net Worth</BalanceLabel>
-                  <BalanceValue>${totalValue.toFixed(2)}</BalanceValue>
+                  <BalanceLabel>PnL</BalanceLabel>
+                  <BalanceValue>
+                    {(totalValue - config.initialBalance >= 0 ? '+' : '') + (totalValue - config.initialBalance).toFixed(2)}$
+                  </BalanceValue>
+                  <div style={{ fontSize: '0.8em', color: '#aaa', marginTop: '2px' }}>
+                    {config.initialBalance > 0
+                      ? ((totalValue - config.initialBalance) / config.initialBalance * 100).toFixed(2) + '%'
+                      : 'N/A'}
+                  </div>
                 </BalanceMetric>
 
                 <BalanceMetric color="rgba(156, 39, 176, 0.3)">
@@ -635,7 +716,7 @@ function App() {
 
         <StatusBar>
           <div>
-            Connection: {isConnected ? 'Connected' : 'Disconnected'}
+            Connection: {isConnected ? 'Connected' : 'Disconnected'} ({config.marketDataSource})
           </div>
           <div>
             Current Price: {marketData?.price.toFixed(5) || 'Loading...'}

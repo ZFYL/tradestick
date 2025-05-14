@@ -55,6 +55,7 @@ export interface Config {
   priceChangeThreshold1m: number;  // 1-30, default 5
   priceChangeThreshold15m: number; // 5-45, default 5
   priceChangeThreshold1h: number;  // 5-100, default 5
+  marketDataSource: 'simulator' | 'binance' | 'else';
 }
 
 

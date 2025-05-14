@@ -151,7 +151,7 @@ const TradeIndicator = styled.div<{
 const GamepadController: React.FC<GamepadControllerProps> = ({
   executeTrade,
   maxTradeSize,
-  tradeSizeStep = 0.1,
+  tradeSizeStep = 0.000000001,
   currentPrice
 }) => {
   const [gamepadState, setGamepadState] = useState<GamepadState>({
@@ -320,7 +320,7 @@ const GamepadController: React.FC<GamepadControllerProps> = ({
         if (rightBumperPressed) previewMultiplier *= 20;
 
         const previewSizeCoefficient = Math.min(1, Math.abs(rightJoystickY));
-        const previewRawSize = Math.max(0.1, previewSizeCoefficient * maxTradeSize * previewMultiplier);
+        const previewRawSize = Math.max(tradeSizeStep, previewSizeCoefficient * maxTradeSize * previewMultiplier);
         const previewSize = Math.max(tradeSizeStep, Math.round(previewRawSize / tradeSizeStep) * tradeSizeStep);
 
         setPreviewTrade({
@@ -350,7 +350,7 @@ const GamepadController: React.FC<GamepadControllerProps> = ({
 
             // Calculate trade size for this direction
             const sizeCoefficient = Math.min(1, Math.abs(rightJoystickY));
-            const rawSize = Math.max(0.1, sizeCoefficient * maxTradeSize * previewMultiplier);
+            const rawSize = Math.max(tradeSizeStep, sizeCoefficient * maxTradeSize * previewMultiplier);
             const size = Math.max(tradeSizeStep, Math.round(rawSize / tradeSizeStep) * tradeSizeStep);
 
             // Immediately execute a trade on direction start
@@ -380,7 +380,7 @@ const GamepadController: React.FC<GamepadControllerProps> = ({
               if (l2) multiplier *= 10;
               if (r1) multiplier *= 20;
               const coeff = Math.min(1, Math.abs(y));
-              const raw = Math.max(0.1, coeff * maxTradeSize * multiplier);
+              const raw = Math.max(tradeSizeStep, coeff * maxTradeSize * multiplier);
               const sz = Math.max(tradeSizeStep, Math.round(raw / tradeSizeStep) * tradeSizeStep);
 
               setActiveTrade({

@@ -41,45 +41,57 @@ const SettingsContainer = styled.div`
   flex-direction: column;
   background-color: ${props => props.theme.colors.chart.background};
   border-radius: 4px;
-  padding: 1.5rem;
-  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.92em;
+  gap: 0.5rem;
 `;
 
 const SettingsTitle = styled.h2`
-  margin: 0 0 1.5rem 0;
+  margin: 0 0 0.75rem 0;
   color: ${props => props.theme.colors.foreground};
+  font-size: 1.1em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 `;
 
 const SettingsForm = styled.form`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.7rem;
 `;
 
 const FormGroup = styled.div`
   display: flex;
   flex-direction: column;
+  margin-bottom: 0.2rem;
+  gap: 0.1rem;
 `;
 
 const Label = styled.label`
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.2rem;
   color: ${props => props.theme.colors.chart.text};
+  font-size: 0.92em;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 `;
 
 const Input = styled.input`
-  padding: 0.75rem;
+  padding: 0.4rem 0.6rem;
   background-color: ${props => props.theme.colors.background};
   border: 1px solid ${props => props.theme.colors.chart.grid};
   border-radius: 4px;
   color: ${props => props.theme.colors.foreground};
+  font-size: 0.92em;
 `;
 
 const Select = styled.select`
-  padding: 0.75rem;
+  padding: 0.4rem 0.6rem;
   background-color: ${props => props.theme.colors.background};
   border: 1px solid ${props => props.theme.colors.chart.grid};
   border-radius: 4px;
   color: ${props => props.theme.colors.foreground};
+  font-size: 0.92em;
 `;
 
 const RangeContainer = styled.div`
@@ -97,8 +109,8 @@ const RangeValue = styled.div`
 const ButtonContainer = styled.div`
   display: flex;
   justify-content: flex-end;
-  margin-top: 1.5rem;
-  gap: 1rem;
+  margin-top: 0.7rem;
+  gap: 0.7rem;
 `;
 
 const Button = styled.button<{ variant?: 'primary' | 'secondary' }>`
@@ -120,9 +132,9 @@ const Button = styled.button<{ variant?: 'primary' | 'secondary' }>`
 const PresetButtonsContainer = styled.div`
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.5rem;
   grid-column: 1 / -1;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.7rem;
 `;
 
 const PresetButton = styled.button<{ $preset: 'CHILL' | 'ON_FIRE' | 'CRAZY' | 'EXTREME' }>`
@@ -187,6 +199,14 @@ const PresetButton = styled.button<{ $preset: 'CHILL' | 'ON_FIRE' | 'CRAZY' | 'E
       }
     }};
   }
+`;
+
+const SectionSeparator = styled.hr`
+  border: none;
+  border-top: 1px solid ${props => props.theme.colors.chart.grid};
+  margin: 0.7rem 0 0.7rem 0;
+  width: 100%;
+  opacity: 0.5;
 `;
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) => {
@@ -369,6 +389,19 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
       </PresetButtonsContainer>
 
       <SettingsForm onSubmit={handleSubmit}>
+<FormGroup>
+          <Label htmlFor="marketDataSource">Market Data Source</Label>
+          <Select
+            id="marketDataSource"
+            name="marketDataSource"
+            value={formValues.marketDataSource}
+            onChange={handleChange}
+          >
+            <option value="simulator">Simulator</option>
+            <option value="binance">Binance (Live)</option>
+            <option value="else">Else (WIP)</option>
+          </Select>
+        </FormGroup>
         <FormGroup>
           <Label htmlFor="initialPrice">Initial Price</Label>
           <Input
@@ -561,9 +594,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
             id="maxTradeSize"
             name="maxTradeSize"
             type="number"
-            min="0.1"
-            max="10"
-            step="0.1"
+            min="0.000000001"
+            max="1"
+            step="0.000000001"
             value={formValues.maxTradeSize}
             onChange={handleChange}
           />
@@ -575,9 +608,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
             id="tradeSizeStep"
             name="tradeSizeStep"
             type="number"
-            min="0.01"
+            min="0.000000001"
             max="1"
-            step="0.01"
+            step="0.000000001"
             value={formValues.tradeSizeStep}
             onChange={handleChange}
           />
