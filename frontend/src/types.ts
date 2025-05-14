@@ -56,6 +56,7 @@ export interface Config {
   priceChangeThreshold15m: number; // 5-45, default 5
   priceChangeThreshold1h: number;  // 5-100, default 5
   marketDataSource: 'simulator' | 'binance' | 'else';
+  symbol: string; // Trading symbol (e.g., 'btcusdt', 'ethusdt')
 }
 
 

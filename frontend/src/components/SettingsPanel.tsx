@@ -201,13 +201,7 @@ const PresetButton = styled.button<{ $preset: 'CHILL' | 'ON_FIRE' | 'CRAZY' | 'E
   }
 `;
 
-const SectionSeparator = styled.hr`
-  border: none;
-  border-top: 1px solid ${props => props.theme.colors.chart.grid};
-  margin: 0.7rem 0 0.7rem 0;
-  width: 100%;
-  opacity: 0.5;
-`;
+
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) => {
   const [formValues, setFormValues] = useState<Config>({ ...config });
@@ -240,7 +234,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
         });
         setAmplitudeLoading(false);
       })
-      .catch((err) => {
+      .catch(() => {
         setAmplitudeError('Could not load amplitude settings.');
         setAmplitudeLoading(false);
       });
@@ -284,7 +278,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
         await res.json();
         setAmplitudeSaving(false);
       })
-      .catch((err) => {
+      .catch(() => {
         setAmplitudeError('Could not save amplitude setting.');
         setAmplitudeSaving(false);
       });
@@ -297,10 +291,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
 
     // Convert to appropriate type
     let parsedValue: string | number = value;
-  
+
+    // Handle symbol field - store as lowercase for WebSocket connection
+    if (name === 'symbol') {
+      parsedValue = value.toLowerCase();
+    }
     // Convert numeric inputs to numbers
     // Include range inputs and specific named fields
-    if (
+    else if (
       type === 'number' ||
       type === 'range' ||
       name === 'candleInterval' ||
@@ -308,13 +306,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
     ) {
       parsedValue = parseFloat(value);
     }
-  
+
     // Special logic for price change threshold sliders to enforce logical lower boundaries
     setFormValues(prev => {
       let updated = { ...prev, [name]: parsedValue };
       // Only apply logic for the threshold sliders
       const numValue = parsedValue as number;
-  
+
       if (name === 'priceChangeThreshold15s') {
         if (updated.priceChangeThreshold1m < numValue) updated.priceChangeThreshold1m = numValue;
         if (updated.priceChangeThreshold15m < updated.priceChangeThreshold1m) updated.priceChangeThreshold15m = updated.priceChangeThreshold1m;
@@ -332,7 +330,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
       if (name === 'priceChangeThreshold1h') {
         if (updated.priceChangeThreshold1h < updated.priceChangeThreshold15m) updated.priceChangeThreshold1h = updated.priceChangeThreshold15m;
       }
-  
+
       return updated;
     });
   };
@@ -401,6 +399,40 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, updateConfig }) =
             <option value="binance">Binance (Live)</option>
             <option value="else">Else (WIP)</option>
           </Select>
+        </FormGroup>
+
+        <FormGroup>
+          <Label htmlFor="symbol">Trading Symbol</Label>
+          <Input
+            id="symbol"
+            name="symbol"
+            type="text"
+            placeholder="e.g., BTCUSDT, ETHUSDT"
+            value={formValues.symbol.toUpperCase()}
+            onChange={handleChange}
+            list="trading-symbols"
+            style={{ textTransform: 'uppercase' }}
+          />
+          <datalist id="trading-symbols">
+            <option value="BTCUSDT">Bitcoin</option>
+            <option value="ETHUSDT">Ethereum</option>
+            <option value="BNBUSDT">Binance Coin</option>
+            <option value="SOLUSDT">Solana</option>
+            <option value="ADAUSDT">Cardano</option>
+            <option value="XRPUSDT">Ripple</option>
+            <option value="DOGEUSDT">Dogecoin</option>
+            <option value="DOTUSDT">Polkadot</option>
+            <option value="AVAXUSDT">Avalanche</option>
+            <option value="MATICUSDT">Polygon</option>
+            <option value="LINKUSDT">Chainlink</option>
+            <option value="UNIUSDT">Uniswap</option>
+            <option value="SHIBUSDT">Shiba Inu</option>
+            <option value="LTCUSDT">Litecoin</option>
+            <option value="ATOMUSDT">Cosmos</option>
+          </datalist>
+          <div style={{ fontSize: '0.8em', color: '#aaa', marginTop: '4px' }}>
+            Format: [asset][quote] (e.g., BTCUSDT, ETHUSDT, SOLUSDT)
+          </div>
         </FormGroup>
         <FormGroup>
           <Label htmlFor="initialPrice">Initial Price</Label>

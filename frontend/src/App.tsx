@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import styled, { ThemeProvider } from 'styled-components';
 import './App.css';
 import TradingChart from './components/TradingChart';
@@ -273,7 +273,8 @@ function App() {
     priceChangeThreshold1m: 5,    // 1-30, default 5
     priceChangeThreshold15m: 5,   // 5-45, default 5
     priceChangeThreshold1h: 5,    // 5-100, default 5
-    marketDataSource: 'simulator'
+    marketDataSource: 'binance',
+    symbol: 'ethusdt'  // Default to Ethereum/USDT
   };
 
   // Load config from localStorage or use default
@@ -298,7 +299,16 @@ function App() {
   const [historicalPrices, setHistoricalPrices] = useState<{timestamp: number, price: number}[]>([]);
   const [priceChangePercent, setPriceChangePercent] = useState(0);
 
-  // Trade rate limiting
+  // Function to reset chart data when settings change
+  const resetChartData = useCallback(() => {
+    setMarketData(null);
+    setTrades([]);
+    setHistoricalValues([]);
+    setHistoricalPrices([]);
+    setRollingPnL(0);
+    setPriceChangePercent(0);
+    console.log('Chart data reset');
+  }, []);
 
   // Trade rate limiting
   const lastTradeTime = useRef<number>(0);
@@ -309,6 +319,12 @@ function App() {
     let ws: WebSocket | null = null;
     let wsReconnectTimeout: number | null = null;
     let isUnmounted = false;
+
+    // This effect should run whenever the market data source or symbol changes
+    console.log(`Connecting to ${config.marketDataSource} with symbol ${config.symbol}`);
+
+    // Reset chart data when data source or symbol changes
+    resetChartData();
 
     if (config.marketDataSource === 'simulator') {
       // Poll backend as before
@@ -336,11 +352,13 @@ function App() {
     } else if (config.marketDataSource === 'binance') {
       // Connect to Binance WebSocket
       const connectWS = () => {
-        ws = new window.WebSocket('wss://stream.binance.com:9443/ws/btcusdt@kline_1s');
+        // Use the user-specified symbol from config
+        const symbol = config.symbol.toLowerCase();
+        ws = new window.WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@kline_1s`);
         ws.onopen = () => {
           if (isUnmounted) return;
           setIsConnected(true);
-          console.log('Connected to Binance WebSocket');
+          console.log(`Connected to Binance WebSocket for ${symbol}`);
         };
         ws.onmessage = (event) => {
           if (isUnmounted) return;
@@ -413,7 +431,7 @@ function App() {
       if (ws) ws.close();
       if (wsReconnectTimeout) clearTimeout(wsReconnectTimeout);
     };
-  }, [config.marketDataSource]);
+  }, [config.marketDataSource, config.symbol]);
 
   // Calculate portfolio value whenever asset holdings or market price changes
   useEffect(() => {
@@ -605,8 +623,8 @@ function App() {
             <HeaderControls>
               <BalanceDisplay>
                 <BalanceMetric color="rgba(33, 150, 243, 0.3)">
-                  <BalanceLabel>BTC Value</BalanceLabel>
-                  <BalanceValue>{assetHoldings.toFixed(8)} BTC</BalanceValue>
+                  <BalanceLabel>{config.symbol.slice(0, -4).toUpperCase()} Value</BalanceLabel>
+                  <BalanceValue>{assetHoldings.toFixed(8)} {config.symbol.slice(0, -4).toUpperCase()}</BalanceValue>
                 </BalanceMetric>
 
                 <BalanceMetric color="rgba(255, 152, 0, 0.3)">
@@ -622,7 +640,7 @@ function App() {
                 </BalanceMetric>
 
                 <BalanceMetric color="rgba(156, 39, 176, 0.3)">
-                  <BalanceLabel>BTC Holdings</BalanceLabel>
+                  <BalanceLabel>{config.symbol.slice(0, -4).toUpperCase()} Holdings</BalanceLabel>
                   <BalanceValue>{assetHoldings.toFixed(4)}</BalanceValue>
                 </BalanceMetric>
 
@@ -654,6 +672,9 @@ function App() {
               const updatedConfig = { ...config, ...newConfig };
               setConfig(updatedConfig);
               saveConfig(updatedConfig);
+
+              // Reset chart data when settings are updated
+              resetChartData();
             }}
           />
         )}
@@ -717,6 +738,9 @@ function App() {
         <StatusBar>
           <div>
             Connection: {isConnected ? 'Connected' : 'Disconnected'} ({config.marketDataSource})
+          </div>
+          <div>
+            Symbol: <strong>{config.symbol.toUpperCase()}</strong>
           </div>
           <div>
             Current Price: {marketData?.price.toFixed(5) || 'Loading...'}
