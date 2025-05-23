@@ -4,9 +4,11 @@ import './App.css';
 import TradingChart from './components/TradingChart';
 import OrderBook from './components/OrderBook';
 import GamepadController from './components/GamepadController';
-import SettingsPanel from './components/SettingsPanel';
+import SimplifiedSettings from './components/SimplifiedSettings';
 import TradeBook from './components/TradeBook';
 import Footer from './components/Footer';
+import AchievementSystem from './components/AchievementSystem';
+import PatternRecognition from './components/PatternRecognition';
 import type { MarketData, Trade, Config } from './types';
 import { theme } from './theme';
 import {
@@ -18,6 +20,20 @@ import {
   loadAssetHoldings,
   clearAllSavedData
 } from './utils/localStorage';
+import { MarketSimulator, MARKET_PATTERN_PRESETS } from './utils/marketSimulator';
+import { initAudio, playSound, setSoundEnabled, isSoundEnabled } from './utils/soundEffects';
+import {
+  XPProfile,
+  createDefaultProfile,
+  loadXPProfile,
+  saveXPProfile,
+  processTradeForXP,
+  processAchievementForXP,
+  processPatternForXP,
+  processSessionTimeForXP
+} from './utils/xpSystem';
+import XPProgressBar from './components/XPProgressBar';
+import Leaderboard from './components/Leaderboard';
 
 // Styled components
 const AppContainer = styled.div`
@@ -262,9 +278,9 @@ function App() {
     spread: 0.0002,
     updateInterval: 10,
     orderBookLevels: 10,
-    maxTradeSize: 0.000000001,
-    maxTradesPerSecond: 2,
-    tradeSizeStep: 0.000000001,
+    maxTradeSize: 0.01,
+    maxTradesPerSecond: 5,
+    tradeSizeStep: 0.001,
     initialBalance: 10000,
     candleInterval: 1000, // Default to 1 second candles
     pnlWindowTime: 15000, // Default to 15 second rolling window
@@ -273,8 +289,11 @@ function App() {
     priceChangeThreshold1m: 5,    // 1-30, default 5
     priceChangeThreshold15m: 5,   // 5-45, default 5
     priceChangeThreshold1h: 5,    // 5-100, default 5
-    marketDataSource: 'binance',
-    symbol: 'ethusdt'  // Default to Ethereum/USDT
+    marketDataSource: 'simulator', // Default to simulator for better initial experience
+    symbol: 'ethusdt',  // Default to Ethereum/USDT
+    patternType: 'random_walk',
+    patternStrength: 0.5,
+    patternDuration: 30000
   };
 
   // Load config from localStorage or use default
@@ -284,6 +303,27 @@ function App() {
   const [walletConnected, setWalletConnected] = useState(true);
   const [walletAddress, setWalletAddress] = useState('0x7F9e54Bb92D4652E2c8Bd1fB7529457B8e5c7aD3');
   const [showWalletOptions, setShowWalletOptions] = useState(false);
+
+  // Game state
+  const [unlockedPatterns, setUnlockedPatterns] = useState<string[]>(['support_resistance']);
+  const [unlockedSimulators, setUnlockedSimulators] = useState<string[]>(['basic']);
+  const [streakMultiplier, setStreakMultiplier] = useState(1);
+  const [multiplierExpiry, setMultiplierExpiry] = useState(0);
+  const [soundEnabled, setSoundEnabledState] = useState(true);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [recentXPGain, setRecentXPGain] = useState(0);
+
+  // XP system
+  const [xpProfile, setXPProfile] = useState<XPProfile>(() =>
+    loadXPProfile('user123', walletAddress.substring(0, 6))
+  );
+
+  // Session time tracking for XP
+  const sessionStartTime = useRef(Date.now());
+  const lastSessionXP = useRef(Date.now());
+
+  // Client-side simulator
+  const simulatorRef = useRef<MarketSimulator | null>(null);
 
   // Balance tracking - load from localStorage or use default
   const [balance, setBalance] = useState(() => loadBalance(config.initialBalance));
@@ -327,28 +367,45 @@ function App() {
     resetChartData();
 
     if (config.marketDataSource === 'simulator') {
-      // Poll backend as before
-      const fetchMarketData = () => {
-        fetch('http://localhost:3001/api/market-data')
-          .then(response => response.json())
-          .then(data => {
-            if (Math.random() < 0.1) {
-              console.log('Received market data:', {
-                timestamp: data.timestamp,
-                price: data.price,
-                candles: data.candles?.length || 0
-              });
-            }
-            setMarketData(data);
-            setIsConnected(true);
-          })
-          .catch(error => {
-            console.error('Error fetching market data:', error);
-            setIsConnected(false);
-          });
+      // Initialize client-side simulator
+      if (!simulatorRef.current) {
+        simulatorRef.current = new MarketSimulator({
+          initialPrice: config.initialPrice,
+          volatility: config.volatility,
+          spread: config.spread,
+          updateInterval: config.updateInterval,
+          orderBookLevels: config.orderBookLevels,
+          patternType: config.patternType,
+          patternStrength: config.patternStrength,
+          patternDuration: config.patternDuration
+        });
+      } else {
+        // Update simulator config
+        simulatorRef.current.updateConfig({
+          volatility: config.volatility,
+          spread: config.spread,
+          updateInterval: config.updateInterval,
+          orderBookLevels: config.orderBookLevels,
+          patternType: config.patternType,
+          patternStrength: config.patternStrength,
+          patternDuration: config.patternDuration
+        });
+      }
+
+      // Set up interval to generate market data
+      const generateMarketData = () => {
+        if (simulatorRef.current) {
+          const data = simulatorRef.current.generateMarketData();
+          setMarketData(data);
+          setIsConnected(true);
+        }
       };
-      fetchMarketData();
-      intervalId = setInterval(fetchMarketData, 500);
+
+      // Initial data generation
+      generateMarketData();
+
+      // Set up interval
+      intervalId = window.setInterval(generateMarketData, config.updateInterval);
     } else if (config.marketDataSource === 'binance') {
       // Connect to Binance WebSocket
       const connectWS = () => {
@@ -486,6 +543,40 @@ function App() {
     });
   }, [assetHoldings, marketData, balance, config.pnlWindowTime]);
 
+  // Initialize audio on first user interaction
+  useEffect(() => {
+    const initOnInteraction = () => {
+      initAudio();
+      setSoundEnabled(soundEnabled);
+      document.removeEventListener('click', initOnInteraction);
+    };
+
+    document.addEventListener('click', initOnInteraction);
+
+    return () => {
+      document.removeEventListener('click', initOnInteraction);
+    };
+  }, [soundEnabled]);
+
+  // Session time XP
+  useEffect(() => {
+    // Award XP for session time every 5 minutes
+    const sessionInterval = setInterval(() => {
+      const now = Date.now();
+      const minutesActive = Math.floor((now - lastSessionXP.current) / (60 * 1000));
+
+      if (minutesActive >= 5) {
+        const result = processSessionTimeForXP(xpProfile, minutesActive);
+        setXPProfile(result.updatedProfile);
+        saveXPProfile(result.updatedProfile);
+        setRecentXPGain(result.xpGained);
+        lastSessionXP.current = now;
+      }
+    }, 60 * 1000); // Check every minute
+
+    return () => clearInterval(sessionInterval);
+  }, [xpProfile]);
+
   // Execute a trade
   const executeTrade = (side: 'buy' | 'sell', size: number) => {
     if (!isConnected || !marketData) return;
@@ -497,6 +588,7 @@ function App() {
 
     if (timeSinceLastTrade < minTimeBetweenTrades) {
       console.log(`Trade rejected: Rate limit (${config.maxTradesPerSecond} per second) exceeded`);
+      playSound('error', 0.3);
       return;
     }
 
@@ -505,6 +597,9 @@ function App() {
 
     // Check if we have enough balance for buying
     const price = side === 'buy' ? marketData.ask : marketData.bid;
+
+    // Apply streak multiplier to trade size if active
+    const effectiveMultiplier = Date.now() < multiplierExpiry ? streakMultiplier : 1;
     const tradeValue = Math.abs(roundedSize) * price;
 
     // Validate the trade
@@ -557,7 +652,67 @@ function App() {
     // Update last trade time for rate limiting
     lastTradeTime.current = now;
 
+    // Add trade to simulator if using simulator
+    if (config.marketDataSource === 'simulator' && simulatorRef.current) {
+      simulatorRef.current.addTrade(side, roundedSize, price);
+    }
+
+    // Play sound effect
+    playSound(side, 0.5);
+
+    // Process trade for XP
+    const pnl = side === 'buy'
+      ? (marketData.price - price) * Math.abs(roundedSize)
+      : (price - marketData.price) * Math.abs(roundedSize);
+
+    const currentStreak = pnl > 0 ? (xpProfile.stats.longestStreak + 1) : 0;
+
+    const xpResult = processTradeForXP(xpProfile, trade, marketData.price, currentStreak);
+    setXPProfile(xpResult.updatedProfile);
+    saveXPProfile(xpResult.updatedProfile);
+    setRecentXPGain(xpResult.xpGained);
+
     console.log('Executed trade:', trade);
+  };
+
+  // Handle achievement rewards
+  const handleUnlockReward = (reward: { type: string; value: string | number; description: string }, achievementId: string, achievementName: string) => {
+    console.log('Unlocked reward:', reward);
+
+    // Play achievement sound
+    playSound('achievement', 0.7);
+
+    // Process achievement for XP
+    const xpResult = processAchievementForXP(xpProfile, achievementId, achievementName);
+    setXPProfile(xpResult.updatedProfile);
+    saveXPProfile(xpResult.updatedProfile);
+    setRecentXPGain(xpResult.xpGained);
+
+    switch (reward.type) {
+      case 'pattern_highlight':
+        // Add pattern to unlocked patterns
+        setUnlockedPatterns(prev => [...prev, reward.value as string]);
+        break;
+
+      case 'multiplier':
+        // Set multiplier and expiry time
+        setStreakMultiplier(reward.value as number);
+        setMultiplierExpiry(Date.now() + 5 * 60 * 1000); // 5 minutes
+        break;
+
+      case 'simulator':
+        // Unlock simulator features
+        setUnlockedSimulators(prev => [...prev, reward.value as string]);
+        break;
+    }
+  };
+
+  // Toggle sound
+  const toggleSound = () => {
+    const newState = !soundEnabled;
+    setSoundEnabledState(newState);
+    setSoundEnabled(newState);
+    playSound('click', 0.3);
   };
 
 
@@ -569,6 +724,11 @@ function App() {
           <Title>TradeStick</Title>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+            <XPProgressBar
+              xpProfile={xpProfile}
+              recentXP={recentXPGain}
+              onLeaderboardClick={() => setShowLeaderboard(true)}
+            />
             <div style={{ display: 'flex', alignItems: 'center' }}>
               {/* Wallet Connection UI */}
               <div style={{ position: 'relative', marginRight: '20px' }}>
@@ -666,7 +826,7 @@ function App() {
         </Header>
 
         {showSettings && (
-          <SettingsPanel
+          <SimplifiedSettings
             config={config}
             updateConfig={(newConfig) => {
               const updatedConfig = { ...config, ...newConfig };
@@ -676,16 +836,39 @@ function App() {
               // Reset chart data when settings are updated
               resetChartData();
             }}
+            onClose={() => setShowSettings(false)}
+            unlockedSimulators={unlockedSimulators}
           />
         )}
 
         <MainContent>
           <ChartContainer>
             {marketData ? (
-              <TradingChart
-                marketData={marketData}
-                trades={trades}
-              />
+              <>
+                <TradingChart
+                  marketData={marketData}
+                  trades={trades}
+                />
+                <PatternRecognition
+                  marketData={marketData}
+                  unlockedPatterns={unlockedPatterns}
+                  onPatternDetected={(patternType) => {
+                    // Process pattern detection for XP
+                    const result = processPatternForXP(xpProfile, patternType);
+                    setXPProfile(result.updatedProfile);
+                    saveXPProfile(result.updatedProfile);
+                    setRecentXPGain(result.xpGained);
+
+                    // Play pattern detected sound
+                    playSound('pattern_detected', 0.4);
+                  }}
+                />
+                <AchievementSystem
+                  trades={trades}
+                  currentPrice={marketData.price}
+                  onUnlockReward={handleUnlockReward}
+                />
+              </>
             ) : (
               <PriceDisplay>Loading...</PriceDisplay>
             )}
@@ -751,9 +934,19 @@ function App() {
           <div>
             Rate Limit: {config.maxTradesPerSecond}/sec
           </div>
+          <div style={{ cursor: 'pointer' }} onClick={toggleSound}>
+            Sound: {soundEnabled ? '🔊 ON' : '🔇 OFF'}
+          </div>
         </StatusBar>
 
         <Footer />
+
+        {showLeaderboard && (
+          <Leaderboard
+            userProfile={xpProfile}
+            onClose={() => setShowLeaderboard(false)}
+          />
+        )}
       </AppContainer>
     </ThemeProvider>
   );

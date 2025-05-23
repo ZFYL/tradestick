@@ -1,14 +1,18 @@
-# Gamified Forex Trading Simulator
+# TradeStick - Gamified Trading Simulator
 
-A web-based forex trading simulator with PS5 DualShock joystick integration, real-time market data visualization, and gamified trading experience.
+A highly gamified trading simulator with PS5 DualShock joystick integration, real-time market data visualization, pattern recognition, and achievement system. TradeStick turns trading into an engaging game that helps users develop pattern recognition skills.
 
 ## Features
 
-- **Synthetic Market Data Generation**: Uses Geometric Brownian Motion to generate realistic forex price movements
+- **Client-side Market Simulator**: Generate realistic price movements with various patterns right in the browser
+- **Pattern Recognition System**: Automatically detects and highlights trading patterns
+- **Achievement System**: Unlock rewards and features as you improve your trading skills
+- **PS5 DualShock Integration**: Trade using the joystick and trigger buttons for an immersive experience
 - **Real-time Visualization**: Displays candlestick charts and order book with 60fps updates
-- **PS5 DualShock Integration**: Trade using the joystick and trigger buttons
-- **Configurable Parameters**: Adjust volatility, spread, trade size, and more
-- **Trade History and P&L**: Track your trades and performance in real-time
+- **Binance Integration**: Connect to real market data or use the simulator
+- **Sound Effects**: Audio feedback enhances the gaming experience
+- **Streak Multipliers**: Build consecutive profitable trades to earn multipliers
+- **Simplified Settings**: Easy-to-use interface with presets for different market conditions
 
 ## Tech Stack
 

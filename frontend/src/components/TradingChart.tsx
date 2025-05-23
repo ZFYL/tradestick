@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
-import type { IChartApi, ISeriesApi, Time, LineData } from 'lightweight-charts';
+import { createChart, CandlestickSeries, HistogramSeries, LineStyle } from 'lightweight-charts';
+import type { IChartApi, ISeriesApi, Time, LineData, IPriceLine } from 'lightweight-charts';
 import styled from 'styled-components';
 import type { MarketData, Trade, Candle } from '../types';
 
 interface TradingChartProps {
   marketData: MarketData;
   trades: Trade[];
+  patternLines?: {
+    type: string;
+    price: number;
+    color: string;
+    title: string;
+    lineStyle?: LineStyle;
+  }[];
 }
 
 const ChartWrapper = styled.div`
@@ -41,15 +48,16 @@ const TradeCounter = styled.div<{ $type: 'buy' | 'sell'; $active: boolean }>`
   transform: scale(${props => props.$active ? 1.2 : 1});
 `;
 
-const TradingChart: React.FC<TradingChartProps> = ({ marketData, trades }) => {
+const TradingChart: React.FC<TradingChartProps> = ({ marketData, trades, patternLines = [] }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const priceLineRef = useRef<{
     buy?: ReturnType<ISeriesApi<any>['createPriceLine']>,
-    sell?: ReturnType<ISeriesApi<any>['createPriceLine']>
-  }>({});
+    sell?: ReturnType<ISeriesApi<any>['createPriceLine']>,
+    patterns: Record<string, ReturnType<ISeriesApi<any>['createPriceLine']>>
+  }>({ patterns: {} });
 
   // Trade counters
   const [buyCount, setBuyCount] = useState(0);
@@ -60,7 +68,8 @@ const TradingChart: React.FC<TradingChartProps> = ({ marketData, trades }) => {
   // Track last processed trade to avoid duplicates
   const lastProcessedTradeId = useRef<string | null>(null);
 
-
+  // Track active pattern lines
+  const [activePatternLines, setActivePatternLines] = useState<string[]>([]);
 
   // Initialize chart
   useEffect(() => {
@@ -261,7 +270,43 @@ const TradingChart: React.FC<TradingChartProps> = ({ marketData, trades }) => {
     }
   }, [trades]);
 
+  // Add pattern lines to the chart
+  useEffect(() => {
+    if (!candlestickSeriesRef.current || !chartRef.current) return;
 
+    // Remove old pattern lines that are no longer in the new list
+    Object.keys(priceLineRef.current.patterns).forEach(id => {
+      if (!patternLines.some(line => `${line.type}-${line.price}` === id)) {
+        if (priceLineRef.current.patterns[id] && candlestickSeriesRef.current) {
+          candlestickSeriesRef.current.removePriceLine(priceLineRef.current.patterns[id]);
+          delete priceLineRef.current.patterns[id];
+        }
+      }
+    });
+
+    // Add new pattern lines
+    patternLines.forEach(line => {
+      const lineId = `${line.type}-${line.price}`;
+
+      // Skip if this line already exists
+      if (priceLineRef.current.patterns[lineId]) return;
+
+      // Create the price line
+      if (candlestickSeriesRef.current) {
+        priceLineRef.current.patterns[lineId] = candlestickSeriesRef.current.createPriceLine({
+          price: line.price,
+          color: line.color,
+          lineWidth: 1,
+          lineStyle: line.lineStyle || 2, // Default to dashed
+          axisLabelVisible: true,
+          title: line.title,
+        });
+      }
+    });
+
+    // Update active pattern lines for animation
+    setActivePatternLines(patternLines.map(line => `${line.type}-${line.price}`));
+  }, [patternLines]);
 
   return (
     <ChartWrapper ref={chartContainerRef}>
