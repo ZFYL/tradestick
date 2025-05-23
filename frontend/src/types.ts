@@ -57,6 +57,11 @@ export interface Config {
   priceChangeThreshold1h: number;  // 5-100, default 5
   marketDataSource: 'simulator' | 'binance' | 'else';
   symbol: string; // Trading symbol (e.g., 'btcusdt', 'ethusdt')
+  // Pattern simulation options
+  patternType?: 'random_walk' | 'uptrend' | 'downtrend' | 'volatile' | 'sideways' |
+               'breakout_up' | 'breakout_down' | 'head_and_shoulders' | 'double_top' | 'double_bottom';
+  patternStrength?: number; // 0-1, controls how strong the pattern is
+  patternDuration?: number; // in milliseconds, how long the pattern lasts
 }
 
 
